@@ -3,7 +3,11 @@
 #include<iostream>
 #include<stdlib.h>
 #include<unistd.h>
+#include<fcntl.h>
+#include <sys/stat.h>
+#include<unordered_map>
 using namespace std;
+void opRedirectionLogic(int check,char ** argv);
 void  parse(char *line, char **argv)
 {
      while (*line != '\0') {       /* if not the end of line ....... */
@@ -64,11 +68,20 @@ int checkOpRedirection(char *buff)
     return 0;
 }
 
+int checkIpRedirection(char *buff)
+{
+    int i=0;
+    while(buff[i]!='\0')
+    {
+        if(buff[i] == '<' )
+            return 1;
+        i++;
+    }
+    return 0;
+}
+
 void changePrompt()
 {
-    //cout << "Hello";
-    //char *arg[1];
-    //arg[0] = 0;
     execl("/home/lenovo/Desktop/Temporary Codes/myrc","myrc",NULL);
     perror("execl script.sh");
 }
@@ -91,18 +104,42 @@ void execute(char **argv)
         exit(127);
     }
     if ((pid = waitpid(pid, &status, 0)) < 0)
-    perror("waitpid error");
-    printf("%% ");
+        perror("waitpid error");
+}
+
+void ipRedirectionLogic(int check,char **argv)
+{
+    char *param1[10],*param2[10];
+    int i=0,j=0;
+    string temp = "<";
+    while(!(strcmp(argv[i], temp.c_str()) == 0))
+    {
+        param1[j++] = argv[i++];
+    }
+    param1[j] = 0;
+    j = 0; i++;
+    while(argv[i]!= 0)
+    {
+        param2[j++] = argv[i++];
+    }
+    param2[j] = 0;
+    //------------------------------
+    int newfd;
+    if ((newfd = open(param2[0], O_RDONLY)) < 0)
+    {
+        perror(param2[0]);	/* open failed */
+        exit(1);
+    }
+    auto defaultStdIn = dup(0);
+    dup2(newfd,0);
+    execute(param1);
+    dup2(defaultStdIn,0);
 }
 
 void opRedirectionLogic(int check,char ** argv)
 {
     char *param1[10],*param2[10];
     int i=0,j=0;
-    /*for(;*argv != 0 ;*argv++)
-        cout << *argv;*/
-
-
     string temp1 = ">",temp2 = ">>";
     while(!(strcmp(argv[i], temp1.c_str()) == 0 || strcmp(argv[i], temp2.c_str()) == 0))
     {
@@ -115,40 +152,64 @@ void opRedirectionLogic(int check,char ** argv)
         param2[j++] = argv[i++];
     }
     param2[j] = 0;
-
-    for(int i=0;param1[i]!=0;i++)
-    {
-        cout << param1[i];
-    }
-    cout <<endl;
-    for(int i=0;param2[i] !=0;i++)
-    {
-        cout << param2[i];
-    }
+    //------------------------------
+    int newfd;
     if(check==1)
     {
-
+        if ((newfd = open(param2[0], O_CREAT|O_TRUNC|O_WRONLY)) < 0)
+        {
+            perror(param2[0]);	/* open failed */
+            exit(1);
+        }
+        if(fchmod(newfd,S_IRWXU | S_IRWXG | S_IRWXO)!=0)
+		{
+			perror("\nfchmod");
+			return;
+		}
     }
     else if(check==2)
     {
+        if((newfd = open(param2[0],O_WRONLY | O_APPEND)) < 0)
+        {
+            perror(param2[0]);
+            exit(1);
+        }
+    }
+    auto defaultStdOut = dup(1);
+    dup2(newfd,1);
+    execute(param1);
+    dup2(defaultStdOut,1);
+    //perror(param1[0]);
+    //exit(0);
+}
+void checkCreateAlias(unordered_map<string,string> aliasMap,char *buf)
+{
+    auto check = strstr(buf,"alias");
+    if(check)
+    {
 
     }
-
 }
 int main(void)
 {
     char buf[1024];
     char *argv[50];
-    printf("%% ");
+    unordered_map<string,string> aliasMap;
+    printf("$ ");
     while(1)
     {
         input(buf);
-       // auto opRedirec = checkOpRedirection(buf);
+        //checkCreateAlias(aliasMap,buf);
+        auto checkout = checkOpRedirection(buf);
+        auto checkin = checkIpRedirection(buf);
         parse(buf,argv);
-
-        //cout << opRedirec<<endl;
-        //opRedirectionLogic(opRedirec,argv);
-        execute(argv);
+        if(checkout)
+            opRedirectionLogic(checkout,argv);
+        else if(checkin)
+            ipRedirectionLogic(checkin,argv);
+        else
+            execute(argv);
+        printf("$ ");
     }
     exit(0);
 }

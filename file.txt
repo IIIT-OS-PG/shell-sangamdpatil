@@ -1,0 +1,8 @@
+total 108
+drwxrwxr-x 3 lenovo lenovo  4096 Sep  4 19:28 .
+drwxr-xr-x 4 lenovo lenovo  4096 Sep  1 01:17 ..
+-rwxrwxrwx 1 lenovo lenovo     0 Sep  4 19:28 file.txt
+-rwxrwxr-x 1 lenovo lenovo 34208 Sep  4 19:23 fork2
+-rw-rw-r-- 1 lenovo lenovo  4721 Sep  4 19:23 fork2.cpp
+-rw-rw-r-- 1 lenovo lenovo 49912 Sep  4 19:23 fork2.o
+drwxr-xr-x 8 lenovo lenovo  4096 Sep  4 11:33 .git
