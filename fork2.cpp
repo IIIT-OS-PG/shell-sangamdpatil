@@ -8,14 +8,14 @@
 #include<unordered_map>
 using namespace std;
 void opRedirectionLogic(int check,char ** argv);
-void  parse(char *line, char **argv)
+void  parse(char *line, char **argv,char delimiter)
 {
-     while (*line != '\0') {       /* if not the end of line ....... */
-          while (*line == ' ' || *line == '\t' || *line == '\n')
+     while (*line != '\0')
+     {       /* if not the end of line ....... */
+          while (*line == delimiter) //|| *line == '\t' || *line == '\n')
                *line++ = '\0';     /* replace white spaces with 0    */
           *argv++ = line;          /* save the argument position     */
-          while (*line != '\0' && *line != ' ' &&
-                 *line != '\t' && *line != '\n')
+          while (*line != '\0' && *line != delimiter)
                line++;             /* skip the argument until ...    */
      }
      *argv = 0;                 /* mark the end of argument list  */
@@ -24,16 +24,20 @@ void  parse(char *line, char **argv)
 void cd(char *path)
 {
     char cwd[256];
+    if(strcmp(path,"~")==0)
+        path = "/home";
+    //cout<<path<<endl;~
+
     if(chdir(path) != 0)
         perror("chdir() error()");
     else
     {
         if (getcwd(cwd, sizeof(cwd)) == NULL)
             perror("getcwd() error");
-        else
-            printf("current working directory is: %s\n", cwd);
+        //else
+          //  printf("current working directory is: %s\n", cwd);
     }
-    exit(0);
+    //exit(0);
 }
 char** findPipe(char **argv)
 {
@@ -95,6 +99,8 @@ void execute(char **argv)
 {
     pid_t pid;
     int status;
+    //char binPath[50] = "/bin/";
+    //strcat(binPath,argv[0]);
     if ((pid = fork()) < 0)
         perror("fork error");
     else if (pid == 0)
@@ -190,19 +196,208 @@ void checkCreateAlias(unordered_map<string,string> aliasMap,char *buf)
 
     }
 }
+
+int checkPipes(char *buf,char **cmds)
+{
+    int count=0,i=0;//cout <<"in pipescheck"<<endl;
+    while(buf[i]!='\0')
+    {
+        if(buf[i] == '|')
+            count++;
+        i++;
+    }
+    parse(buf,cmds,'|');
+    /*while(*cmds)
+    {
+        cout << *cmds<<endl;
+        cmds++;
+    }*/
+    return count;
+
+}
+void trimLeft(char **str)
+{
+    int i=0,j=0,k=0;
+    while(str[k]!=0)
+    {
+        while(str[k][i]==' ')
+        {
+            i++;
+        }
+        if(i==0)
+            return;
+        while(str[k][i]!='\0')
+        {
+            str[k][j] = str[k][i];
+        }
+        k++;
+    }
+}
+
+void trimRight(char **str)
+{
+    int i=0,ptrLen;
+    while(str[i]!= 0)
+    {
+        i++;
+    }
+    ptrLen = i;
+    int k=0;i=0;
+    while(k < ptrLen)
+    {
+        i=0;
+        while(str[k][i]!='\0')
+        {
+            i++;
+        }
+        i--;
+        while(str[k][i]==' ')
+        {
+            i--;
+        }
+        str[k][i+1] = '\0'; //cout << str[k].size();
+        //cout << str[k];
+        k++;
+    }
+
+}
+void pipeExecute(char **cmds,int numPipes,char **argv)
+{
+    int RD=0,pid,status;
+    char *temp[10];
+    //cout <<numPipes;
+    int fd[2];
+    for(int i=0;i <= numPipes;i++)
+    {
+        pipe(fd);int j=0;
+
+        trimLeft(temp);
+        trimRight(temp);
+        parse(cmds[i],temp,' ');
+        //cout <<argv[i]<<endl;
+       // while(temp[j]!=0){cout << temp[j]<<endl;j++;}
+        //parse(argv[i],tempArgv,' ');while(tempArgv[j]!=0){cout << tempArgv[j];j++;}
+        if((pid = fork())< 0)
+              perror("fork error");
+        if(pid==0)
+        {//ls: cannot access '': No such file or directory
+
+            if(i==0)
+            {
+                dup2(fd[1],1);
+                close(fd[0]);
+                close(fd[1]);
+                execvp(temp[0],temp);
+
+            }
+            else if(i == numPipes)
+            {
+                dup2(RD,0);
+                close(fd[0]);
+                close(fd[1]);
+                execvp(temp[0],temp);
+            }
+            else
+            {
+                dup2(RD,0);
+                dup2(fd[1],1);
+                close(fd[0]);
+                close(fd[1]);
+                execvp(temp[0],temp);
+            }
+        }
+        else if(pid > 0)
+        {   //cout <<"parent Before:"<<endl;
+            wait(NULL);
+            //cout <<"parent After:"<<endl;
+            close(fd[1]);
+            RD = fd[0];
+        }
+    }
+
+}
+
+void createAlias(char *buf,unordered_map<string,string> &aliasMap)
+{
+     //alias abs=ls -al ; abs
+
+     char *argv[10],*cmd[10];
+     parse(buf,argv,'=');
+     parse(argv[0],cmd,' ');
+
+     string key(cmd[1]);
+     string val(argv[1]);//cout <<key<<val;
+     aliasMap[key] = val;
+     //aliasMap[cmd[1]] = argv[1];
+     /*for(auto x:aliasMap)
+        cout << x.first<<" "<<x.second<<endl;*/
+}
+
+bool isPresentInAlias(char buf[],unordered_map<string,string> &aliasMap)
+{
+
+    string key(buf);
+    //string val(argv[1]);
+    char *temp[10];
+    string val;
+    if(aliasMap.find(key)!=aliasMap.end())
+        val = aliasMap[key];
+    else
+        return false;
+
+    char argv[val.size()+1];
+    strcpy(argv,val.c_str());
+
+    parse(argv,temp,' ');
+    //temp[0] = argv[];cout<<"argv: " <<argv;
+    //temp[1]=0;
+    execute(temp);
+    return true;
+}
+
 int main(void)
 {
     char buf[1024];
-    char *argv[50];
+    char *argv[50],*cmds[10];
     unordered_map<string,string> aliasMap;
     printf("$ ");
     while(1)
     {
         input(buf);
-        //checkCreateAlias(aliasMap,buf);
+        if(strlen(buf)==0)
+         {
+             printf("$ ");
+             continue;
+         }
+        if(strstr(buf,"alias"))
+        {
+            createAlias(buf,aliasMap);
+            printf("$ ");
+            continue;
+        }
+        if(isPresentInAlias(buf,aliasMap))
+        {
+            printf("$ ");
+            continue;
+        }
+        auto numPipes = checkPipes(buf,cmds); //cout <<numPipes;
+        if(numPipes > 0)
+        {
+            pipeExecute(cmds,numPipes,argv);
+            printf("$ ");
+            continue;
+        }
+
         auto checkout = checkOpRedirection(buf);
         auto checkin = checkIpRedirection(buf);
-        parse(buf,argv);
+
+        parse(buf,argv,' ');
+        if(strstr(argv[0],"cd"))
+        {
+            cd(argv[1]);
+            printf("$ ");
+            continue;
+        }
         if(checkout)
             opRedirectionLogic(checkout,argv);
         else if(checkin)
