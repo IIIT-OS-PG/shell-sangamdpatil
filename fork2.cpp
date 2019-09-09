@@ -4,21 +4,75 @@
 #include<stdlib.h>
 #include<unistd.h>
 #include<fcntl.h>
+#include <fstream>
 #include <sys/stat.h>
 #include<unordered_map>
+#include<pwd.h>
+#include<vector>
+#include<sstream>
 using namespace std;
+int EXIT_STATUS=0;
 void opRedirectionLogic(int check,char ** argv);
-void  parse(char *line, char **argv,char delimiter)
+void execute(char **argv);
+void  parse(char *buf, char **argv,char delimiter)
 {
-     while (*line != '\0')
-     {       /* if not the end of line ....... */
-          while (*line == delimiter) //|| *line == '\t' || *line == '\n')
-               *line++ = '\0';     /* replace white spaces with 0    */
-          *argv++ = line;          /* save the argument position     */
-          while (*line != '\0' && *line != delimiter)
-               line++;             /* skip the argument until ...    */
+     while (*buf != '\0')
+     {
+          while (*buf == delimiter)
+          {
+              *buf++ = '\0';
+          }
+          *argv++ = buf;
+          while (*buf != '\0' && *buf != delimiter)
+          {
+             buf++;
+          }
      }
-     *argv = 0;                 /* mark the end of argument list  */
+     *argv = 0;
+}
+
+void fileOpen( char *buf)
+{
+    int i=strlen(buf)-1;
+    while( i>0 && buf[i]!='.')
+    {
+        i--;
+    }
+
+    char *ptr= &buf[i+1];
+    string ext(ptr);//cout << ext << endl;
+    ifstream myfile("/home/lenovo/Desktop/Temporary Codes/extMapping");
+    string str,path;
+    char *argv[10],*temp[10];char charStr[100];
+    while(getline(myfile,str))
+    {
+        //char charStr[str.size()+1];
+        strcpy(charStr,str.c_str());
+        for(i=0;charStr[i]!='=';i++)
+        {
+
+        }
+        charStr[i] = '\0';
+        i++;
+        argv[0] = charStr;
+        argv[1] = &charStr[i];//cout << argv[0]<<"="<<argv[1]<<endl;
+        if(strcmp(argv[0],ext.c_str())==0)
+        {
+            temp[0] = argv[1];//cout << temp[0]<<endl;
+            break;
+        }
+    }
+
+    for(i=0;buf[i]!=' ';i++)
+    {
+
+    }
+    i++;
+    temp[1] = &buf[i];
+    temp[2] = 0;
+    execute(temp);
+
+
 }
 
 void cd(char *path)
@@ -39,7 +93,7 @@ void cd(char *path)
     }
     //exit(0);
 }
-char** findPipe(char **argv)
+/*char** findPipe(char **argv)
 {
     char *pipeArgu[10];
     int i=0;
@@ -52,7 +106,7 @@ char** findPipe(char **argv)
         }
     }
     return pipeArgu;
-}
+}*/
 
 int checkOpRedirection(char *buff)
 {
@@ -84,10 +138,13 @@ int checkIpRedirection(char *buff)
     return 0;
 }
 
-void changePrompt()
+void showPrompt()
 {
-    execl("/home/lenovo/Desktop/Temporary Codes/myrc","myrc",NULL);
-    perror("execl script.sh");
+
+    if(getuid()==0)
+        cout << "#> ";
+    else
+        cout <<"$> ";
 }
 void input(char *buf)
 {
@@ -109,8 +166,12 @@ void execute(char **argv)
         printf("couldn’t execute: %s\n", argv[0]);
         exit(127);
     }
-    if ((pid = waitpid(pid, &status, 0)) < 0)
-        perror("waitpid error");
+    //if ((pid = waitpid(pid, &status, 0)) < 0)
+      //  perror("waitpid error");
+    waitpid(pid,&status,0);
+    //cout << status;
+    if (WIFEXITED(status))
+        EXIT_STATUS = WEXITSTATUS(status);
 }
 
 void ipRedirectionLogic(int check,char **argv)
@@ -188,14 +249,6 @@ void opRedirectionLogic(int check,char ** argv)
     //perror(param1[0]);
     //exit(0);
 }
-void checkCreateAlias(unordered_map<string,string> aliasMap,char *buf)
-{
-    auto check = strstr(buf,"alias");
-    if(check)
-    {
-
-    }
-}
 
 int checkPipes(char *buf,char **cmds)
 {
@@ -207,11 +260,7 @@ int checkPipes(char *buf,char **cmds)
         i++;
     }
     parse(buf,cmds,'|');
-    /*while(*cmds)
-    {
-        cout << *cmds<<endl;
-        cmds++;
-    }*/
+
     return count;
 
 }
@@ -333,11 +382,12 @@ void createAlias(char *buf,unordered_map<string,string> &aliasMap)
         cout << x.first<<" "<<x.second<<endl;*/
 }
 
+
 bool isPresentInAlias(char buf[],unordered_map<string,string> &aliasMap)
 {
 
     string key(buf);
-    //string val(argv[1]);
+    //stringal(argv[1]);
     char *temp[10];
     string val;
     if(aliasMap.find(key)!=aliasMap.end())
@@ -355,36 +405,95 @@ bool isPresentInAlias(char buf[],unordered_map<string,string> &aliasMap)
     return true;
 }
 
+void loadEnv()
+{
+    execl("/home/lenovo/Desktop/Temporary Codes/myrc","myrc",NULL);
+    perror("execl script.sh");
+    //echo "hello"
+    //echo "hello $PATH"
+    //echo ""
+}
+
+void init()
+{
+    ifstream myfile("/home/lenovo/Desktop/Temporary Codes/mybashrc");
+    string str;
+    char *argv[10];
+    while(getline(myfile,str))
+    {
+        char charStr[str.size()+1];
+        strcpy(charStr,str.c_str());
+        parse(charStr,argv,'=');
+        setenv(argv[0],argv[1],0);//cout <<argv[0]<<"="<<argv[1]<<endl;
+    }
+    struct passwd *p;
+    p = getpwuid(getuid());
+    setenv("USER",p->pw_name,0);
+    setenv("HOME",p->pw_dir,0);
+    //cout <<getenv("$");
+}
 int main(void)
 {
-    char buf[1024];
+    char buf[1024],prompt[10];
     char *argv[50],*cmds[10];
     unordered_map<string,string> aliasMap;
-    printf("$ ");
+
+    init();
+    showPrompt();
+    //cout << prompt<<endl;
     while(1)
     {
         input(buf);
+
+        if(strstr(buf,"open "))
+        {
+            fileOpen(buf);
+            showPrompt();
+            continue;
+        }
+
+        if(strcmp(buf,"$?")==0)
+        {
+            if(EXIT_STATUS==0)
+                cout << EXIT_STATUS<<endl;
+            else
+            {
+                cout << EXIT_STATUS<<endl;
+                EXIT_STATUS = 0;
+            }
+            showPrompt();
+            continue;
+        }
+
+        if(strcmp(buf,"$$")==0)
+        {
+            cout << getpid()<<endl;
+            EXIT_STATUS = 0;
+            showPrompt();
+            continue;
+        }
         if(strlen(buf)==0)
          {
-             printf("$ ");
+             showPrompt();
+             EXIT_STATUS=148;
              continue;
          }
         if(strstr(buf,"alias"))
         {
             createAlias(buf,aliasMap);
-            printf("$ ");
+            showPrompt();
             continue;
         }
         if(isPresentInAlias(buf,aliasMap))
         {
-            printf("$ ");
+            showPrompt();
             continue;
         }
         auto numPipes = checkPipes(buf,cmds); //cout <<numPipes;
         if(numPipes > 0)
         {
             pipeExecute(cmds,numPipes,argv);
-            printf("$ ");
+            showPrompt();
             continue;
         }
 
@@ -395,7 +504,7 @@ int main(void)
         if(strstr(argv[0],"cd"))
         {
             cd(argv[1]);
-            printf("$ ");
+            showPrompt();
             continue;
         }
         if(checkout)
@@ -404,7 +513,9 @@ int main(void)
             ipRedirectionLogic(checkin,argv);
         else
             execute(argv);
-        printf("$ ");
+        showPrompt();
+
     }
     exit(0);
 }
+

@@ -1,0 +1,6 @@
+mkv=/snap/bin/vlc
+mp4=/snap/bin/vlc
+txt=/usr/bin/gedit
+jpeg=/usr/bin/eog
+jpg=/usr/bin/eog
+pdf=/usr/bin/libreoffice

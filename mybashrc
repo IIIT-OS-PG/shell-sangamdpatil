@@ -1,0 +1,3 @@
+PATH=/home/lenovo/bin:/home/lenovo/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+HOSTNAME=lenovo-Lenovo-ideapad-320-15ISK
+PS1=$> 
